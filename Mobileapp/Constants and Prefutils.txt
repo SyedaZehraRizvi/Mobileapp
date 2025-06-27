@@ -1,0 +1,56 @@
+utils ka folder r us mai Constants aur PrefUtils
+
+package com.example.firebase.utils;
+
+public class Constants {
+    public static String userPrefs = "user";
+}
+
+
+package com.example.firebase.utils;
+
+import android.content.Context;
+import android.content.SharedPreferences;
+
+import com.example.firebase.models.User;
+import com.example.firebase.utils.Constants;
+import com.google.gson.Gson;
+
+public class PrefUtils {
+    private String name = "my_prefs";
+    private SharedPreferences sharedPreferences;
+    private SharedPreferences.Editor editor;
+    private static PrefUtils instance;
+
+    public PrefUtils(Context context) {
+        sharedPreferences = context.getSharedPreferences(name,Context.MODE_PRIVATE);
+        editor = sharedPreferences.edit();
+    }
+
+    public static PrefUtils getInstance(Context context) {
+        if(instance == null){
+            instance = new PrefUtils(context);
+        }
+        return instance;
+    }
+
+    public Boolean setUser(User user){
+        Gson gson = new Gson();
+        String userString = gson.toJson(user);
+        editor.putString(Constants.userPrefs,userString);
+        editor.apply();
+        return true;
+    }
+    public User getUser(){
+        Gson gson = new Gson();
+        String userString =  sharedPreferences.getString(Constants.userPrefs,"");
+        return gson.fromJson(userString,User.class);
+    }
+
+    public Boolean clearPrefs(){
+        editor.clear();
+        editor.apply();
+        return true;
+    }
+
+}

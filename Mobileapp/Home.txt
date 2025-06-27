@@ -1,0 +1,157 @@
+package com.example.firebase;
+
+import android.content.Intent;
+import android.os.Bundle;
+import android.util.Log;
+import android.view.View;
+import android.widget.ImageButton;
+import android.widget.Toast;
+
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
+
+import com.example.firebase.adapter.UserListAdapter;
+import com.example.firebase.models.User;
+import com.example.firebase.utils.PrefUtils;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.firestore.CollectionReference;
+import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.QueryDocumentSnapshot;
+
+import java.util.ArrayList;
+import java.util.List;
+
+public class Home extends AppCompatActivity {
+
+    private ImageButton logoutbtn;
+    private RecyclerView users_view;
+    private UserListAdapter userListAdapter;
+    private PrefUtils prefUtils;
+    private List<User> userList;
+
+    private FirebaseFirestore firestore;
+    private FirebaseUser currentUser;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_home);
+
+        logoutbtn = findViewById(R.id.logoutbtn);
+        users_view = findViewById(R.id.users_view);
+        users_view.setLayoutManager(new LinearLayoutManager(this));
+
+        prefUtils = PrefUtils.getInstance(this);
+
+        firestore = FirebaseFirestore.getInstance();
+        currentUser = FirebaseAuth.getInstance().getCurrentUser();
+
+        userList = new ArrayList<>();
+        userListAdapter = new UserListAdapter(this, userList);
+        users_view.setAdapter(userListAdapter);
+
+        logoutbtn.setOnClickListener(v -> {
+            if (prefUtils.clearPrefs()) {
+                FirebaseAuth.getInstance().signOut();
+                Toast.makeText(Home.this, "Logged out", Toast.LENGTH_SHORT).show();
+                startActivity(new Intent(Home.this, Login.class));
+                finish();
+            } else {
+                Toast.makeText(Home.this, "Something went wrong while logging out", Toast.LENGTH_SHORT).show();
+            }
+        });
+
+        loadUsersFromFirestore();
+    }
+
+    private void loadUsersFromFirestore() {
+        if (currentUser == null) {
+            Toast.makeText(this, "User not logged in", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        CollectionReference usersRef = firestore.collection("users");
+
+        usersRef.get().addOnCompleteListener(task -> {
+            if (task.isSuccessful()) {
+                userList.clear();
+                for (QueryDocumentSnapshot doc : task.getResult()) {
+                    String id = doc.getString("UserID");
+                    String name = doc.getString("Name");
+                    String email = doc.getString("Email");
+                    String phone = doc.getString("Phone");
+
+                    if (email != null && email.equalsIgnoreCase(currentUser.getEmail())) {
+                        continue;
+                    }
+
+                    User user = new User();
+                    user.setId(id);
+                    user.setName(name);
+                    user.setEmail(email);
+                    user.setPhone(phone);
+
+                    userList.add(user);
+                    Log.d("FirestoreUser", "Loaded user: " + email);
+                }
+
+                userListAdapter.notifyDataSetChanged();
+            } else {
+                Toast.makeText(this, "Failed to load users", Toast.LENGTH_SHORT).show();
+                Log.e("FirestoreError", "Error: ", task.getException());
+            }
+        });
+    }
+}
+
+
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/main"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    tools:context=".Home"
+    android:orientation="vertical"
+    android:background="@drawable/ig_bg">
+
+    <com.google.android.material.appbar.MaterialToolbar
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@color/purple">
+
+        <RelativeLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Home"
+                android:textSize="30sp"
+                android:textColor="@color/white" />
+
+            <ImageButton
+                android:id="@+id/logoutbtn"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:background="?attr/actionBarItemBackground"
+                android:src="@drawable/logout_icon"
+                android:layout_alignParentEnd="true"
+                android:layout_centerVertical="true"
+                android:layout_marginEnd="10dp" />
+
+        </RelativeLayout>
+    </com.google.android.material.appbar.MaterialToolbar>
+
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/users_view"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+       android:paddingHorizontal="10dp"
+        android:paddingVertical="10dp"/>
+</LinearLayout>
